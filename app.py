@@ -224,7 +224,7 @@ if stl_file or csv_count > 0:
                     pre_mapped = []
 
                     for df in data_frames:
-                        csv_pts = df[['x-coordinate', 'y-coordinate', 'z-coordinate']].values * 1000
+                        csv_pts = df[['x-coordinate', 'y-coordinate', 'z-coordinate']].values
                         tree = spatial.cKDTree(csv_pts)
                         _, idx = tree.query(vertices)
 
