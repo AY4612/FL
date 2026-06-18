@@ -151,10 +151,10 @@ csv_count = len(csv_files) if csv_files else 0
 
 if stl_file or csv_count > 0:
     if not stl_file:
-        st.warning("⏳ STL 파일을 업로드해주세요.")
+        st.warning("STL 파일을 업로드해주세요.")
 #        st.warning("⏳ STL 파일을 먼저 업로드해주세요.")
     elif csv_count < 3:
-        st.info(f"⏳ CSV 파일 3개(5 · 8 · 10 m/s)를 모두 올려주세요.")
+        st.info(f"CSV 파일 3개(5 · 8 · 10 m/s)를 모두 올려주세요.")
 #        st.info(f"⏳ CSV 파일이 {csv_count}개 업로드되었습니다. 3개(5 · 8 · 10 m/s)를 모두 올려주세요.")
     else:
         st.markdown('<div class="section-label">② 극한 조건 교집합(상위 %) 설정</div>', unsafe_allow_html=True)
