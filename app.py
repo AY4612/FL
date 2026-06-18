@@ -46,7 +46,7 @@ col1, col2 = st.columns(2)
 with col1:
     # 아이폰 업로드 버그 해결: type=["stl"] 제한 삭제
     stl_file = st.file_uploader("얼굴 형상 파일",
-                                 help="CFD 해석에 사용된 원본 얼굴 표면 메시 파일을 올려주세요. (모바일 기기 업로드 지원을 위해 제한 해제)")
+                                 help="CFD 해석에 사용된 원본 얼굴 표면 메시 파일을 올려주세요.")
 with col2:
     csv_files = st.file_uploader("속도별 CFD 결과 (CSV) — 3개 모두 업로드",
                                   type=["csv"], accept_multiple_files=True,
@@ -151,7 +151,8 @@ csv_count = len(csv_files) if csv_files else 0
 
 if stl_file or csv_count > 0:
     if not stl_file:
-        st.warning("⏳ STL 파일을 먼저 업로드해주세요.")
+        st.warning("⏳ STL 파일을 업로드해주세요.")
+#        st.warning("⏳ STL 파일을 먼저 업로드해주세요.")
     elif csv_count < 3:
         st.info(f"⏳ CSV 파일 3개(5 · 8 · 10 m/s)를 모두 올려주세요.")
 #        st.info(f"⏳ CSV 파일이 {csv_count}개 업로드되었습니다. 3개(5 · 8 · 10 m/s)를 모두 올려주세요.")
