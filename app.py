@@ -204,9 +204,9 @@ if stl_file or csv_count > 0:
                         all_shears.append(df['wall-shear'].values)
                         all_pressures.append(df['pressure'].values)
                         
-                        # 열전달계수(h)를 수식 TEWL = 1.874 * (10^-6) * h 로 변환하여 저장
+                        # 수정 요청하신 정확한 수식 반영: TEWL = 6.7466 * h
                         h_values = df['heat-transfer-coef'].values
-                        tewl_values = 1.874 * (10**-6) * h_values
+                        tewl_values = 6.7466 * h_values
                         all_tewls.append(tewl_values)
 
                     all_shears_arr   = np.concatenate(all_shears)
@@ -274,13 +274,10 @@ if stl_file or csv_count > 0:
 
                                     over_pct = float(np.mean(scalars >= gt) * 100)
                                     
+                                    # 가독성을 높이기 위해 소수점 3자리 표기로 깔끔하게 유지합니다.
                                     st.caption(
-                                        f"🔴 표시 범위: {vmin:.3e} ~ {vmax:.3e}  \n" if label == "TEWL" else f"🔴 표시 범위: {vmin:.3f} ~ {vmax:.3f}  \n"
-                                    )
-                                    st.caption(
-                                        f"🔴 위험 임계값 (상위 {top_pct}%): **{gt:.3e}** \n" if label == "TEWL" else f"🔴 위험 임계값 (상위 {top_pct}%): **{gt:.3f}** \n"
-                                    )
-                                    st.caption(
+                                        f"🔴 표시 범위: {vmin:.3f} ~ {vmax:.3f}  \n"
+                                        f"🔴 위험 임계값 (상위 {top_pct}%): **{gt:.3f}** \n"
                                         f"🔴 이 속도에서 위험 구역 면적: **{over_pct:.1f}%**"
                                     )
 
