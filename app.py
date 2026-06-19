@@ -38,15 +38,14 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.markdown('<div class="main-title">속도별 피부 손상 3D 분석</div>', unsafe_allow_html=True)
-st.markdown('<div class="sub-title">바람 속도에 따른 얼굴 피부의 전단응력 · 압력 · 열전달계수를 3D로 시각화하고, 위험 교집합을 비교합니다.</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">바람 속도에 따른 얼굴 피부의 전단응력 · 압력 · TEWL을 3D로 시각화하고, 위험 교집합을 비교합니다.</div>', unsafe_allow_html=True)
 
 # ── 파일 업로드 ───────────────────────────────────────────────────────────────
 st.markdown('<div class="section-label">① 파일 업로드</div>', unsafe_allow_html=True)
 col1, col2 = st.columns(2)
 with col1:
-    # 아이폰 업로드 버그 해결: type=["stl"] 제한 삭제
     stl_file = st.file_uploader("얼굴 형상 파일",
-                                 help="CFD 해석에 사용된 원본 얼굴 표면 메시 파일을 올려주세요.")
+                               help="CFD 해석에 사용된 원본 얼굴 표면 메시 파일을 올려주세요.")
 with col2:
     csv_files = st.file_uploader("속도별 CFD 결과 (CSV) — 3개 모두 업로드",
                                   type=["csv"], accept_multiple_files=True,
@@ -152,10 +151,8 @@ csv_count = len(csv_files) if csv_files else 0
 if stl_file or csv_count > 0:
     if not stl_file:
         st.warning("STL 파일을 업로드해주세요.")
-#        st.warning("⏳ STL 파일을 먼저 업로드해주세요.")
     elif csv_count < 3:
         st.info(f"CSV 파일 3개(5 · 8 · 10 m/s)를 모두 올려주세요.")
-#        st.info(f"⏳ CSV 파일이 {csv_count}개 업로드되었습니다. 3개(5 · 8 · 10 m/s)를 모두 올려주세요.")
     else:
         st.markdown('<div class="section-label">② 극한 조건 교집합(상위 %) 설정</div>', unsafe_allow_html=True)
         st.markdown("""
@@ -173,8 +170,8 @@ if stl_file or csv_count > 0:
             w_p = st.slider("🌬️ 압력 위험 기준 (상위 %)", 0, 100, 10,
                             help="상위 몇 %의 압력을 위험 구역으로 볼지 설정합니다.")
         with w_col3:
-            w_h = st.slider("🌡️ 열전달계수 위험 기준 (상위 %)", 0, 100, 10,
-                            help="상위 몇 %의 열전달계수를 위험 구역으로 볼지 설정합니다.")
+            w_t = st.slider("🌡️ TEWL 위험 기준 (상위 %)", 0, 100, 10,
+                            help="상위 몇 %의 TEWL 수치를 위험 구역으로 볼지 설정합니다.")
 
         st.markdown('<div class="section-label">③ 3D 분석 실행</div>', unsafe_allow_html=True)
         if st.button("🚀 3D 변환 및 매핑 시작", type="primary"):
@@ -197,7 +194,7 @@ if stl_file or csv_count > 0:
                     tab_names = [get_speed_info(f)[1] for f in csv_files_sorted]
 
                     data_frames = []
-                    all_shears, all_pressures, all_htcs = [], [], []
+                    all_shears, all_pressures, all_tewls = [], [], []
 
                     for csv_file in csv_files_sorted:
                         csv_file.seek(0)
@@ -206,41 +203,47 @@ if stl_file or csv_count > 0:
                         data_frames.append(df)
                         all_shears.append(df['wall-shear'].values)
                         all_pressures.append(df['pressure'].values)
-                        all_htcs.append(df['heat-transfer-coef'].values)
+                        
+                        # 열전달계수(h)를 수식 TEWL = 1.874 * (10^-6) * h 로 변환하여 저장
+                        h_values = df['heat-transfer-coef'].values
+                        tewl_values = 1.874 * (10**-6) * h_values
+                        all_tewls.append(tewl_values)
 
                     all_shears_arr   = np.concatenate(all_shears)
                     all_press_arr    = np.concatenate(all_pressures)
-                    all_htcs_arr     = np.concatenate(all_htcs)
+                    all_tewls_arr     = np.concatenate(all_tewls)
 
                     g_min_shear = float(np.nanpercentile(all_shears_arr, 2))
                     g_max_shear = float(np.nanpercentile(all_shears_arr, 98))
                     g_min_press = float(np.nanpercentile(all_press_arr, 5))
                     g_max_press = float(np.nanpercentile(all_press_arr, 98))
-                    g_min_htc   = float(np.nanpercentile(all_htcs_arr, 2))
-                    g_max_htc   = float(np.nanpercentile(all_htcs_arr, 98))
+                    g_min_tewl   = float(np.nanpercentile(all_tewls_arr, 2))
+                    g_max_tewl   = float(np.nanpercentile(all_tewls_arr, 98))
 
                     gt_shear = float(np.nanpercentile(all_shears_arr, 100 - w_s))
                     gt_press = float(np.nanpercentile(all_press_arr,  100 - w_p))
-                    gt_htc   = float(np.nanpercentile(all_htcs_arr,   100 - w_h))
+                    gt_tewl   = float(np.nanpercentile(all_tewls_arr,   100 - w_t))
 
                     pre_mapped = []
 
-                    for df in data_frames:
+                    for df_idx, df in enumerate(data_frames):
                         csv_pts = df[['x-coordinate', 'y-coordinate', 'z-coordinate']].values
                         tree = spatial.cKDTree(csv_pts)
                         _, idx = tree.query(vertices)
 
                         ms = df['wall-shear'].values[idx]
                         mp = df['pressure'].values[idx]
-                        mh = df['heat-transfer-coef'].values[idx]
+                        
+                        # 현재 탭 파일에 해당되는 변환된 TEWL 값 매핑
+                        mt = all_tewls[df_idx][idx]
 
                         mask_s = ms >= gt_shear
                         mask_p = mp >= gt_press
-                        mask_h = mh >= gt_htc
+                        mask_t = mt >= gt_tewl
                         
-                        overlap_count = mask_s.astype(int) + mask_p.astype(int) + mask_h.astype(int)
+                        overlap_count = mask_s.astype(int) + mask_p.astype(int) + mask_t.astype(int)
 
-                        pre_mapped.append((ms, mp, mh, overlap_count))
+                        pre_mapped.append((ms, mp, mt, overlap_count))
 
                     st.markdown("---")
                     st.markdown("""
@@ -253,15 +256,15 @@ if stl_file or csv_count > 0:
                     tabs = st.tabs(tab_names)
 
                     for i, (tab, df) in enumerate(zip(tabs, data_frames)):
-                        ms, mp, mh, overlap_count = pre_mapped[i]
+                        ms, mp, mt, overlap_count = pre_mapped[i]
 
                         with tab:
-                            col_s, col_p, col_h = st.columns(3)
+                            col_s, col_p, col_t = st.columns(3)
 
                             for col, scalars, label, emoji, vmin, vmax, gt, unit, top_pct in [
                                 (col_s, ms, "전단응력", "🩸", g_min_shear, g_max_shear, gt_shear, "Shear Stress (Pa)", w_s),
                                 (col_p, mp, "압력",     "🌬️", g_min_press, g_max_press, gt_press, "Pressure (Pa)", w_p),
-                                (col_h, mh, "열전달계수", "🌡️", g_min_htc,   g_max_htc,   gt_htc,   "Heat Transfer Coef (W/m²K)", w_h),
+                                (col_t, mt, "TEWL",     "🌡️", g_min_tewl,   g_max_tewl,   gt_tewl,   "TEWL", w_t),
                             ]:
                                 with col:
                                     st.markdown(f"**{emoji} {label}**")
@@ -272,8 +275,12 @@ if stl_file or csv_count > 0:
                                     over_pct = float(np.mean(scalars >= gt) * 100)
                                     
                                     st.caption(
-                                        f"🔴 표시 범위: {vmin:.3f} ~ {vmax:.3f}  \n"
-                                        f"🔴 위험 임계값 (상위 {top_pct}%): **{gt:.3f}**  \n"
+                                        f"🔴 표시 범위: {vmin:.3e} ~ {vmax:.3e}  \n" if label == "TEWL" else f"🔴 표시 범위: {vmin:.3f} ~ {vmax:.3f}  \n"
+                                    )
+                                    st.caption(
+                                        f"🔴 위험 임계값 (상위 {top_pct}%): **{gt:.3e}** \n" if label == "TEWL" else f"🔴 위험 임계값 (상위 {top_pct}%): **{gt:.3f}** \n"
+                                    )
+                                    st.caption(
                                         f"🔴 이 속도에서 위험 구역 면적: **{over_pct:.1f}%**"
                                     )
 
@@ -291,7 +298,7 @@ if stl_file or csv_count > 0:
                             st.markdown("## 통합 피부 손상 위험도")
                             st.markdown(f"""
                             <div class="info-box">
-                            🔴 위에서 설정한 세 가지 극한 조건(<b>전단응력 상위 {w_s}% / 압력 상위 {w_p}% / 열전달계수 상위 {w_h}%</b>)이 겹치는 영역입니다.<br>
+                            🔴 위에서 설정한 세 가지 극한 조건(<b>전단응력 상위 {w_s}% / 압력 상위 {w_p}% / TEWL 상위 {w_t}%</b>)이 겹치는 영역입니다.<br>
                             🔴 조건이 1개, 2개, 3개 겹칠 때마다 <b>회색 ➔ 연주황 ➔ 오렌지 ➔ 다크 레드</b> 순으로 색상이 깊어집니다.
                             </div>
                             """, unsafe_allow_html=True)
